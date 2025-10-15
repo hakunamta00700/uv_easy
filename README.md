@@ -65,6 +65,18 @@ uv_easy build --patch
 uv_easy build --install
 ```
 
+### PyPI 배포
+
+#### PyPI 배포 준비 (URLs 설정)
+```bash
+uv_easy ready_pypi
+```
+
+#### PyPI 업로드
+```bash
+uv_easy publish
+```
+
 ## 명령어 옵션
 
 ### `uv_easy version up`
@@ -78,6 +90,14 @@ uv_easy build --install
 - `--minor`: 마이너 버전을 증가시킨 후 빌드합니다
 - `--patch`: 패치 버전을 증가시킨 후 빌드합니다
 - `--install`: 빌드 후 현재 환경에 패키지를 설치합니다
+
+### `uv_easy ready_pypi`
+- pyproject.toml에 PyPI 배포를 위한 project.urls를 자동으로 추가합니다
+- GitHub 저장소 링크, 이슈 트래커 등을 설정합니다
+
+### `uv_easy publish`
+- dist 디렉토리의 패키지를 PyPI에 업로드합니다
+- twine을 사용하여 안전하게 업로드합니다
 
 ## 예시 워크플로우
 
@@ -103,6 +123,18 @@ uv_easy build --major --install
 ```bash
 # 버전 증가 없이 빌드만
 uv_easy build --no-version-up
+```
+
+### PyPI 배포 워크플로우
+```bash
+# 1. PyPI 배포 준비 (URLs 설정)
+uv_easy ready_pypi
+
+# 2. 빌드
+uv_easy build --patch
+
+# 3. PyPI 업로드
+uv_easy publish
 ```
 
 ## 요구사항

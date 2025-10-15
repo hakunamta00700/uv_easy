@@ -98,6 +98,8 @@ def run_command(command: str, check: bool = True) -> subprocess.CompletedProcess
             check=check,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             shell=False
         )
         return result
@@ -245,9 +247,22 @@ def publish():
     for file in dist_files:
         click.echo(f"  - {file.name}")
     
+    # Windows에서 UTF-8 환경 변수 설정
+    env = os.environ.copy()
+    env['PYTHONIOENCODING'] = 'utf-8'
+    env['PYTHONLEGACYWINDOWSSTDIO'] = '1'
+    
     # twine upload 실행
     try:
-        result = run_command("twine upload dist/*")
+        result = subprocess.run(
+            ["twine", "upload", "dist/*"],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            env=env
+        )
         
         if result.stdout:
             click.echo(result.stdout)
