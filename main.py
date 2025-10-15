@@ -225,6 +225,98 @@ def build(no_version_up: bool, major: bool, minor: bool, patch: bool, install: b
         click.echo("✅ 설치가 완료되었습니다.")
 
 
+@cli.command()
+def publish():
+    """dist 디렉토리의 패키지를 PyPI에 업로드합니다."""
+    # dist 디렉토리 확인
+    dist_dir = Path("dist")
+    if not dist_dir.exists():
+        click.echo("❌ dist 디렉토리를 찾을 수 없습니다. 먼저 빌드를 실행하세요.", err=True)
+        sys.exit(1)
+    
+    # dist 디렉토리에 파일이 있는지 확인
+    dist_files = list(dist_dir.glob("*"))
+    if not dist_files:
+        click.echo("❌ dist 디렉토리가 비어있습니다. 먼저 빌드를 실행하세요.", err=True)
+        sys.exit(1)
+    
+    click.echo("📦 PyPI에 패키지를 업로드합니다...")
+    click.echo("업로드할 파일들:")
+    for file in dist_files:
+        click.echo(f"  - {file.name}")
+    
+    # twine upload 실행
+    try:
+        result = run_command("twine upload dist/*")
+        
+        if result.stdout:
+            click.echo(result.stdout)
+        
+        click.echo("✅ PyPI 업로드가 완료되었습니다!")
+        
+    except subprocess.CalledProcessError as e:
+        click.echo("❌ PyPI 업로드 실패:", err=True)
+        if e.stdout:
+            click.echo(f"stdout: {e.stdout}", err=True)
+        if e.stderr:
+            click.echo(f"stderr: {e.stderr}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+def ready_pypi():
+    """pyproject.toml에 PyPI 배포를 위한 project.urls를 추가합니다."""
+    pyproject_path = get_pyproject_path()
+    
+    try:
+        # 현재 pyproject.toml 읽기
+        with open(pyproject_path, 'r', encoding='utf-8') as f:
+            data = toml.load(f)
+        
+        # project.urls가 이미 있는지 확인
+        if 'urls' in data.get('project', {}):
+            click.echo("⚠️  project.urls가 이미 존재합니다.")
+            click.echo("현재 URLs:")
+            for key, value in data['project']['urls'].items():
+                click.echo(f"  {key}: {value}")
+            
+            if not click.confirm("기존 URLs를 덮어쓰시겠습니까?"):
+                click.echo("작업이 취소되었습니다.")
+                return
+        
+        # 기본 URLs 추가
+        project_name = data['project']['name']
+        default_urls = {
+            "Homepage": f"https://github.com/hakunamta00700/{project_name}",
+            "Repository": f"https://github.com/hakunamta00700/{project_name}",
+            "Issues": f"https://github.com/hakunamta00700/{project_name}/issues",
+            "Documentation": f"https://github.com/hakunamta00700/{project_name}#readme"
+        }
+        
+        # project.urls 추가
+        if 'project' not in data:
+            data['project'] = {}
+        
+        data['project']['urls'] = default_urls
+        
+        # 파일에 쓰기
+        with open(pyproject_path, 'w', encoding='utf-8') as f:
+            toml.dump(data, f)
+        
+        click.echo("✅ PyPI 배포를 위한 URLs가 추가되었습니다:")
+        for key, value in default_urls.items():
+            click.echo(f"  {key}: {value}")
+        
+        click.echo("\n💡 다음 단계:")
+        click.echo("1. GitHub 저장소가 생성되었는지 확인하세요")
+        click.echo("2. uv_easy build로 패키지를 빌드하세요")
+        click.echo("3. uv_easy publish로 PyPI에 업로드하세요")
+        
+    except Exception as e:
+        click.echo(f"❌ URLs 추가 중 오류가 발생했습니다: {e}", err=True)
+        sys.exit(1)
+
+
 def main():
     """CLI 진입점"""
     cli()
