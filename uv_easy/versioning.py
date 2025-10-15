@@ -111,6 +111,40 @@ def run_command(command: str, check: bool = True) -> subprocess.CompletedProcess
         sys.exit(1)
 
 
+def get_current_branch() -> str:
+    """현재 Git 브랜치 이름을 반환합니다."""
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace'
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+        else:
+            # fallback: 기본 브랜치 확인
+            result = subprocess.run(
+                ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace'
+            )
+            
+            if result.returncode == 0:
+                # refs/remotes/origin/main -> main
+                return result.stdout.strip().split('/')[-1]
+            else:
+                # 최종 fallback
+                return "main"
+                
+    except Exception:
+        return "main"
+
+
 def create_git_tag(version: str, push: bool = True) -> None:
     """Git 태그를 생성하고 푸시합니다."""
     tag_name = f"v{version}"
@@ -120,9 +154,10 @@ def create_git_tag(version: str, push: bool = True) -> None:
     result = run_command(f"git tag {tag_name}")
     
     if push:
-        # 태그 푸시
-        click.echo(f"[PUSH] Git 태그 '{tag_name}' 푸시 중...")
-        run_command("git push origin main --tags")
+        # 현재 브랜치 확인
+        current_branch = get_current_branch()
+        click.echo(f"[PUSH] Git 태그 '{tag_name}' 푸시 중... (브랜치: {current_branch})")
+        run_command(f"git push origin {current_branch} --tags")
         click.echo(f"[OK] Git 태그 '{tag_name}' 생성 및 푸시 완료")
     else:
         click.echo(f"[OK] Git 태그 '{tag_name}' 생성 완료 (푸시 안함)")
