@@ -1,21 +1,25 @@
 # uv_easy
 
-uv를 더 쉽게 사용하기 위한 파이썬 패키지입니다. 버전 관리와 빌드 과정을 간소화하여 개발 워크플로우를 개선합니다.
+uv를 더 쉽게 사용하기 위한 파이썬 패키지입니다. 버전 관리, 빌드, 배포 과정을 자동화하여 개발 워크플로우를 개선합니다.
 
-## 기능
+## 🚀 주요 기능
 
-- **버전 관리**: pyproject.toml의 버전을 쉽게 증가시킬 수 있습니다
-- **자동 빌드**: 버전 증가와 빌드를 한 번에 처리합니다
-- **자동 설치**: 빌드된 패키지를 현재 환경에 자동으로 설치할 수 있습니다
+- **자동 버전 관리**: Git 커밋 분석을 통한 Semantic Versioning 자동 증가
+- **Git 태그 자동화**: 버전 증가 시 자동으로 Git 태그 생성 및 푸시
+- **Changelog 자동 생성**: git-cliff를 통한 자동 changelog 생성
+- **빌드 자동화**: 빌드 잔여물 정리 및 패키지 빌드
+- **PyPI/TestPyPI 배포**: twine을 통한 안전한 패키지 업로드
+- **GitHub Actions 통합**: 자동 배포를 위한 workflow 생성
+- **JSON 출력**: CI/CD 친화적인 구조화된 출력
 
-## 설치
+## 📦 설치
 
 ```bash
 # 프로젝트 디렉토리에서
 uv sync
 ```
 
-## 사용법
+## 🛠️ 사용법
 
 ### 버전 관리
 
@@ -24,7 +28,7 @@ uv sync
 uv_easy version show
 ```
 
-#### 버전 증가
+#### 수동 버전 증가
 ```bash
 # 패치 버전 증가 (0.1.0 → 0.1.1)
 uv_easy version up --patch
@@ -34,6 +38,15 @@ uv_easy version up --minor
 
 # 메이저 버전 증가 (0.1.0 → 1.0.0)
 uv_easy version up --major
+```
+
+#### 자동 버전 증가 (Semantic Versioning)
+```bash
+# Git 커밋을 분석하여 자동으로 버전 증가
+uv_easy version up --auto
+
+# Git 태그를 푸시하지 않음
+uv_easy version up --auto --no-push
 ```
 
 ### 빌드
@@ -56,8 +69,8 @@ uv_easy build --minor
 # 메이저 버전 증가 후 빌드
 uv_easy build --major
 
-# 패치 버전 증가 후 빌드
-uv_easy build --patch
+# 자동 버전 증가 후 빌드
+uv_easy build --auto
 ```
 
 #### 빌드 후 자동 설치
@@ -65,7 +78,20 @@ uv_easy build --patch
 uv_easy build --install
 ```
 
-### PyPI 배포
+### Changelog 생성
+
+```bash
+# 현재 버전에 대한 changelog 생성
+uv_easy changelog
+
+# 특정 태그에 대한 changelog 생성
+uv_easy changelog --tag v0.2.1
+
+# 다른 파일명으로 출력
+uv_easy changelog --output HISTORY.md
+```
+
+### PyPI/TestPyPI 배포
 
 #### PyPI 배포 준비 (URLs 설정)
 ```bash
@@ -77,29 +103,39 @@ uv_easy ready_pypi
 uv_easy publish
 ```
 
-## 명령어 옵션
+#### TestPyPI 업로드
+```bash
+uv_easy publish --test
+```
 
-### `uv_easy version up`
-- `--major`: 메이저 버전을 증가시킵니다
-- `--minor`: 마이너 버전을 증가시킵니다
-- `--patch`: 패치 버전을 증가시킵니다
+#### JSON 출력 (CI/CD용)
+```bash
+uv_easy publish --json
+```
 
-### `uv_easy build`
-- `--no-version-up`: 버전을 증가시키지 않고 빌드만 실행합니다
-- `--major`: 메이저 버전을 증가시킨 후 빌드합니다
-- `--minor`: 마이너 버전을 증가시킨 후 빌드합니다
-- `--patch`: 패치 버전을 증가시킨 후 빌드합니다
-- `--install`: 빌드 후 현재 환경에 패키지를 설치합니다
+### GitHub Actions 설정
 
-### `uv_easy ready_pypi`
-- pyproject.toml에 PyPI 배포를 위한 project.urls를 자동으로 추가합니다
-- GitHub 저장소 링크, 이슈 트래커 등을 설정합니다
+#### 기본 workflow 생성
+```bash
+uv_easy init workflow
+```
 
-### `uv_easy publish`
-- dist 디렉토리의 패키지를 PyPI에 업로드합니다
-- twine을 사용하여 안전하게 업로드합니다
+#### TestPyPI용 workflow 생성
+```bash
+uv_easy init workflow --test
+```
 
-## 예시 워크플로우
+#### GitHub Release 자동화 포함
+```bash
+uv_easy init workflow --release
+```
+
+#### git-cliff 설정 파일 생성
+```bash
+uv_easy init cliff-config
+```
+
+## 🔄 전체 워크플로우
 
 ### 개발 중 패치 릴리즈
 ```bash
@@ -110,7 +146,7 @@ uv_easy build --patch --install
 ### 새로운 기능 추가
 ```bash
 # 기능 추가 후
-uv_e_easy build --minor --install
+uv_easy build --minor --install
 ```
 
 ### 메이저 업데이트
@@ -119,30 +155,83 @@ uv_e_easy build --minor --install
 uv_easy build --major --install
 ```
 
-### 개발 중 테스트 빌드
+### 자동 Semantic Versioning
 ```bash
-# 버전 증가 없이 빌드만
-uv_easy build --no-version-up
+# 커밋 메시지에 따라 자동 버전 증가
+uv_easy build --auto --install
 ```
 
-### PyPI 배포 워크플로우
+### 완전 자동화된 릴리즈
 ```bash
-# 1. PyPI 배포 준비 (URLs 설정)
-uv_easy ready_pypi
+# 1. 버전 증가, Git 태그, 빌드, 설치를 한 번에
+uv_easy build --auto --install
 
-# 2. 빌드
-uv_easy build --patch
+# 2. Changelog 생성
+uv_easy changelog
 
-# 3. PyPI 업로드
+# 3. PyPI 배포
 uv_easy publish
 ```
 
-## 요구사항
+## 📋 명령어 옵션
+
+### `uv_easy version up`
+- `--major`: 메이저 버전을 증가시킵니다
+- `--minor`: 마이너 버전을 증가시킵니다
+- `--patch`: 패치 버전을 증가시킵니다
+- `--auto`: Git 커밋을 분석하여 자동으로 버전을 증가시킵니다
+- `--no-push`: Git 태그를 푸시하지 않습니다
+
+### `uv_easy build`
+- `--no-version-up`: 버전을 증가시키지 않고 빌드만 실행합니다
+- `--major`: 메이저 버전을 증가시킨 후 빌드합니다
+- `--minor`: 마이너 버전을 증가시킨 후 빌드합니다
+- `--patch`: 패치 버전을 증가시킨 후 빌드합니다
+- `--auto`: Git 커밋을 분석하여 자동으로 버전을 증가시킨 후 빌드합니다
+- `--install`: 빌드 후 현재 환경에 패키지를 설치합니다
+- `--no-push`: Git 태그를 푸시하지 않습니다
+
+### `uv_easy changelog`
+- `--tag`: 특정 태그에 대한 changelog 생성
+- `--output`, `-o`: 출력 파일명 지정 (기본: CHANGELOG.md)
+
+### `uv_easy publish`
+- `--test`: TestPyPI에 업로드합니다
+- `--json`: JSON 형태로 결과를 출력합니다
+
+### `uv_easy init workflow`
+- `--test`: TestPyPI용 workflow 생성
+- `--release`: GitHub Release 자동화 포함
+
+## 🎯 Semantic Versioning 자동 감지
+
+`--auto` 옵션을 사용하면 Git 커밋 메시지를 분석하여 자동으로 버전을 증가시킵니다:
+
+- `feat:` → minor bump
+- `fix:` → patch bump
+- `breaking change` 또는 `!` 포함 → major bump
+- 기타 → patch bump
+
+## 📊 JSON 출력 예시
+
+```json
+{
+  "version": "0.2.1",
+  "repository": "pypi",
+  "artifacts": [
+    "dist/uv_easy-0.2.1.tar.gz",
+    "dist/uv_easy-0.2.1-py3-none-any.whl"
+  ]
+}
+```
+
+## 🔧 요구사항
 
 - Python 3.9 이상
 - uv
 - pyproject.toml 파일이 있는 프로젝트
+- Git 저장소
 
-## 라이선스
+## 📄 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다.
