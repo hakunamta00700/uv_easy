@@ -4,6 +4,7 @@ uv를 더 쉽게 사용하기 위한 파이썬 패키지입니다. 버전 관리
 
 ## 🚀 주요 기능
 
+- **프로젝트 초기화**: CLI 프로젝트 구조 자동 생성 (click/argparse 지원)
 - **자동 버전 관리**: Git 커밋 분석을 통한 Semantic Versioning 자동 증가
 - **Git 태그 자동화**: 버전 증가 시 자동으로 Git 태그 생성 및 푸시
 - **Changelog 자동 생성**: git-cliff를 통한 자동 changelog 생성
@@ -20,6 +21,36 @@ uv sync
 ```
 
 ## 🛠️ 사용법
+
+### 프로젝트 초기화
+
+#### 새로운 CLI 프로젝트 생성
+```bash
+# click 사용 (기본값)
+uv_easy startproject my_cli
+
+# argparse 사용
+uv_easy startproject my_cli --use argparse
+```
+
+이 명령어는 다음을 자동으로 생성합니다:
+- `<패키지명>/__init__.py` - 패키지 초기화 파일
+- `<패키지명>/__main__.py` - 메인 진입점
+- `<패키지명>/cli.py` - CLI 구현 (click 또는 argparse)
+- `pyproject.toml`에 스크립트 자동 추가
+- 기본 `version` 명령어 포함
+
+생성된 프로젝트 사용 예시:
+```bash
+# 의존성 설치
+uv sync
+
+# 버전 확인
+my_cli version
+
+# uv_easy로 버전 관리
+uv_easy version up --patch
+```
 
 ### 버전 관리
 
@@ -198,6 +229,10 @@ uv_easy publish
 ### `uv_easy publish`
 - `--test`: TestPyPI에 업로드합니다
 - `--json`: JSON 형태로 결과를 출력합니다
+
+### `uv_easy startproject`
+- `<package_name>`: 생성할 패키지 이름 (필수)
+- `--use`: 사용할 CLI 라이브러리 (`click` 또는 `argparse`, 기본값: `click`)
 
 ### `uv_easy init workflow`
 - `--test`: TestPyPI용 workflow 생성
