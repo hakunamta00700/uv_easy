@@ -65,7 +65,17 @@ __version__ = "0.1.0"
 {package_name} 패키지의 메인 진입점
 """
 
-from .cli import main
+import sys
+from pathlib import Path
+
+# 패키지 루트를 sys.path에 추가하여 절대 import 가능하게 함
+_package_dir = Path(__file__).parent
+_project_root = _package_dir.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+# 절대 import 사용
+from {package_name}.cli import main
 
 if __name__ == "__main__":
     main()
@@ -185,15 +195,43 @@ def main():
     cli_file.write_text(cli_content, encoding='utf-8')
     click.echo(f"✅ '{package_name}/cli.py' 파일을 생성했습니다 ({use_cli} 사용).")
     
-    # pyproject.toml에 스크립트 추가
+    # pyproject.toml 설정 통합 업데이트
     try:
         with open(pyproject_path, 'r', encoding='utf-8') as f:
             data = toml.load(f)
         
-        # project.scripts 섹션이 없으면 생성
+        # [project] 섹션 설정
         if 'project' not in data:
             data['project'] = {}
         
+        # 프로젝트 이름이 없으면 설정
+        if 'name' not in data['project']:
+            data['project']['name'] = package_name.replace('_', '-')
+        
+        # 버전이 없으면 추가
+        if 'version' not in data['project']:
+            data['project']['version'] = "0.1.0"
+        
+        # requires-python이 없으면 추가
+        if 'requires-python' not in data['project']:
+            data['project']['requires-python'] = ">=3.9"
+        
+        # dependencies가 없으면 빈 리스트로 초기화
+        if 'dependencies' not in data['project']:
+            data['project']['dependencies'] = []
+        
+        # CLI 라이브러리 의존성 추가 (중복 방지)
+        if use_cli == "click":
+            click_dep = "click>=8.0.0"
+            if not any(dep.startswith("click") for dep in data['project']['dependencies']):
+                data['project']['dependencies'].append(click_dep)
+        
+        # toml 의존성 추가 (버전 확인용)
+        toml_dep = "toml>=0.10.0"
+        if not any(dep.startswith("toml") for dep in data['project']['dependencies']):
+            data['project']['dependencies'].append(toml_dep)
+        
+        # [project.scripts] 섹션 설정
         if 'scripts' not in data['project']:
             data['project']['scripts'] = {}
         
@@ -201,48 +239,65 @@ def main():
         script_entry = f"{package_name}.cli:main"
         data['project']['scripts'][package_name] = script_entry
         
+        # [project.urls] 섹션 설정 (없으면 기본값 추가)
+        if 'urls' not in data['project']:
+            project_name_for_url = data['project'].get('name', package_name.replace('_', '-'))
+            data['project']['urls'] = {
+                "Homepage": f"https://github.com/hakunamta00700/{project_name_for_url}",
+                "Repository": f"https://github.com/hakunamta00700/{project_name_for_url}",
+                "Issues": f"https://github.com/hakunamta00700/{project_name_for_url}/issues",
+                "Documentation": f"https://github.com/hakunamta00700/{project_name_for_url}#readme"
+            }
+        
+        # [build-system] 섹션 설정
+        if 'build-system' not in data:
+            data['build-system'] = {
+                'requires': ['hatchling'],
+                'build-backend': 'hatchling.build'
+            }
+        
+        # [tool.uv] 섹션 설정
+        if 'tool' not in data:
+            data['tool'] = {}
+        if 'uv' not in data['tool']:
+            data['tool']['uv'] = {}
+        data['tool']['uv']['package'] = True
+        
+        # [tool.hatch.build.targets.wheel] 섹션 설정
+        if 'hatch' not in data['tool']:
+            data['tool']['hatch'] = {}
+        if 'build' not in data['tool']['hatch']:
+            data['tool']['hatch']['build'] = {}
+        if 'targets' not in data['tool']['hatch']['build']:
+            data['tool']['hatch']['build']['targets'] = {}
+        if 'wheel' not in data['tool']['hatch']['build']['targets']:
+            data['tool']['hatch']['build']['targets']['wheel'] = {}
+        
+        # wheel 패키지 설정
+        data['tool']['hatch']['build']['targets']['wheel']['packages'] = [package_name]
+        
         # 파일에 쓰기
         with open(pyproject_path, 'w', encoding='utf-8') as f:
             toml.dump(data, f)
         
-        click.echo(f"✅ pyproject.toml에 '{package_name}' 스크립트를 추가했습니다.")
+        click.echo(f"✅ pyproject.toml을 완전히 설정했습니다:")
+        click.echo(f"   - [project] 섹션 (name, version, dependencies)")
+        click.echo(f"   - [project.scripts] 섹션 ({package_name} 스크립트 추가)")
+        click.echo(f"   - [project.urls] 섹션")
+        click.echo(f"   - [build-system] 섹션")
+        click.echo(f"   - [tool.uv] 섹션 (package = true)")
+        click.echo(f"   - [tool.hatch.build.targets.wheel] 섹션")
         click.echo(f"   실행: {package_name} version")
         
     except Exception as e:
         click.echo(f"❌ pyproject.toml 업데이트 중 오류가 발생했습니다: {e}", err=True)
         sys.exit(1)
     
-    # pyproject.toml에 패키지 버전 추가 (없는 경우)
-    try:
-        with open(pyproject_path, 'r', encoding='utf-8') as f:
-            data = toml.load(f)
-        
-        # project 섹션에 패키지 정보가 없으면 추가
-        if 'project' not in data:
-            data['project'] = {}
-        
-        # 패키지 버전이 pyproject.toml에 없으면 추가
-        if 'version' not in data.get('project', {}):
-            data['project']['version'] = "0.1.0"
-            with open(pyproject_path, 'w', encoding='utf-8') as f:
-                toml.dump(data, f)
-            click.echo("✅ pyproject.toml에 버전 정보를 추가했습니다.")
-    except Exception as e:
-        click.echo(f"⚠️  pyproject.toml 버전 추가 중 경고: {e}")
-    
-    # 의존성 추가 안내
-    if use_cli == "click":
-        click.echo("\n💡 다음 단계:")
-        click.echo("   1. pyproject.toml의 dependencies에 'click>=8.0.0', 'toml>=0.10.0' 추가 (없는 경우)")
-        click.echo("   2. uv sync로 의존성 설치")
-        click.echo(f"   3. {package_name} version으로 테스트")
-        click.echo("   4. uv_easy version up으로 버전 관리 시작")
-    else:
-        click.echo("\n💡 다음 단계:")
-        click.echo("   1. pyproject.toml의 dependencies에 'toml>=0.10.0' 추가 (없는 경우)")
-        click.echo("   2. uv sync로 의존성 설치")
-        click.echo(f"   3. {package_name} version으로 테스트")
-        click.echo("   4. uv_easy version up으로 버전 관리 시작")
+    # 다음 단계 안내
+    click.echo("\n💡 다음 단계:")
+    click.echo("   1. uv sync로 의존성 설치")
+    click.echo(f"   2. {package_name} version으로 테스트")
+    click.echo("   3. uv_easy version up으로 버전 관리 시작")
     
     click.echo(f"\n✅ '{package_name}' 프로젝트 구조 생성이 완료되었습니다!")
 
