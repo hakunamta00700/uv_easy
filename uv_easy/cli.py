@@ -15,7 +15,10 @@ from .publisher import publish_to_pypi
 from .changelog import generate_changelog
 from .workflow import generate_github_workflow, generate_git_cliff_config
 from .project import create_project_structure
-
+def safe_text(data):
+    if isinstance(data, bytes):
+        return data.decode('utf-8', errors='replace')
+    return str(data)
 
 def version_callback(ctx, param, value):
     """버전 출력 콜백 함수"""
@@ -128,7 +131,8 @@ def build(no_version_up: bool, major: bool, minor: bool, patch: bool,
     # 2. 버전 증가 (옵션에 따라)
     if not no_version_up:
         current_version = read_version()
-        click.echo(f"현재 버전: {current_version}")
+        print(current_version)
+        # click.echo(f"현재 버전: {safe_text(current_version)}")
         
         if auto:
             increment_type = analyze_git_commits()
