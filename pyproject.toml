@@ -1,6 +1,6 @@
 [project]
 name = "uv-easy"
-version = "0.2.9"
+version = "0.2.41"
 description = "uv를 더 쉽게 사용하기 위한 도구"
 readme = "README.md"
 requires-python = ">=3.9"

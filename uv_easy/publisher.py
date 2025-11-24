@@ -46,18 +46,29 @@ def publish_to_pypi(test: bool = False, json_output: bool = False) -> dict:
     
     # twine upload 실행
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             upload_cmd,
-            check=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding='utf-8',
             errors='replace',
             env=env
         )
+        stdout = proc.stdout.read()  # str
+        stderr = proc.stderr.read()  # str
+        proc.wait()
         
-        if result.stdout:
-            click.echo(result.stdout)
+        if stdout:
+            click.echo(stdout)
+        
+        if proc.returncode != 0:
+            click.echo(f"[ERROR] {repository.upper()} 업로드 실패:", err=True)
+            if stdout:
+                click.echo(f"stdout: {stdout}", err=True)
+            if stderr:
+                click.echo(f"stderr: {stderr}", err=True)
+            sys.exit(1)
         
         click.echo(f"[OK] {repository.upper()} 업로드가 완료되었습니다!")
         
@@ -77,10 +88,6 @@ def publish_to_pypi(test: bool = False, json_output: bool = False) -> dict:
         
         return result_data
         
-    except subprocess.CalledProcessError as e:
-        click.echo(f"[ERROR] {repository.upper()} 업로드 실패:", err=True)
-        if e.stdout:
-            click.echo(f"stdout: {e.stdout}", err=True)
-        if e.stderr:
-            click.echo(f"stderr: {e.stderr}", err=True)
+    except Exception as e:
+        click.echo(f"[ERROR] {repository.upper()} 업로드 실패: {e}", err=True)
         sys.exit(1)

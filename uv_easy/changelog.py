@@ -12,12 +12,18 @@ import click
 def check_git_cliff_installed() -> bool:
     """git-cliff가 설치되어 있는지 확인합니다."""
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["git-cliff", "--version"],
-            capture_output=True,
-            text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
-        return result.returncode == 0
+        proc.stdout.read()  # str
+        proc.stderr.read()  # str
+        proc.wait()
+        return proc.returncode == 0
     except FileNotFoundError:
         return False
 
@@ -28,16 +34,24 @@ def install_git_cliff() -> None:
     
     try:
         # uv를 사용하여 git-cliff 설치
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["uvx", "git-cliff", "--version"],
-            capture_output=True,
-            text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
+        stdout = proc.stdout.read()  # str
+        stderr = proc.stderr.read()  # str
+        proc.wait()
         
-        if result.returncode == 0:
+        if proc.returncode == 0:
             click.echo("[OK] git-cliff가 설치되었습니다.")
         else:
             click.echo("[ERROR] git-cliff 설치에 실패했습니다.", err=True)
+            if stderr:
+                click.echo(f"stderr: {stderr}", err=True)
             sys.exit(1)
             
     except Exception as e:
@@ -62,15 +76,19 @@ def generate_changelog(tag: str = None, output_file: str = "CHANGELOG.md") -> No
         cmd.extend(["--tag", tag])
     
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding='utf-8',
             errors='replace'
         )
+        stdout = proc.stdout.read()  # str
+        stderr = proc.stderr.read()  # str
+        proc.wait()
         
-        if result.returncode == 0:
+        if proc.returncode == 0:
             click.echo(f"[OK] Changelog가 {output_file}에 생성되었습니다.")
             
             # 생성된 파일 내용 미리보기
@@ -90,7 +108,7 @@ def generate_changelog(tag: str = None, output_file: str = "CHANGELOG.md") -> No
                     else:
                         click.echo("[WARNING] 생성된 changelog가 비어있습니다.")
         else:
-            click.echo(f"[ERROR] Changelog 생성 실패: {result.stderr}", err=True)
+            click.echo(f"[ERROR] Changelog 생성 실패: {stderr}", err=True)
             sys.exit(1)
             
     except Exception as e:

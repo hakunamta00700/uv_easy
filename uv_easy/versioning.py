@@ -124,54 +124,72 @@ def increment_version(version: str, increment_type: str) -> str:
     return f"{major}.{minor}.{patch}"
 
 
-def run_command(command: str, check: bool = True) -> subprocess.CompletedProcess:
+def run_command(command: str, check: bool = True) -> subprocess.Popen:
     """명령어를 실행합니다."""
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             command.split(),
-            check=check,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding='utf-8',
             errors='replace',
             shell=False
         )
+        stdout = proc.stdout.read()  # str
+        stderr = proc.stderr.read()  # str
+        proc.wait()
+        
+        if check and proc.returncode != 0:
+            click.echo(f"[ERROR] 명령어 실행 실패: returncode={proc.returncode}", err=True)
+            if stdout:
+                click.echo(f"stdout: {stdout}", err=True)
+            if stderr:
+                click.echo(f"stderr: {stderr}", err=True)
+            sys.exit(1)
+        
+        # CompletedProcess와 유사한 객체를 반환하기 위해 속성 설정
+        result = proc
+        result.stdout_text = stdout
+        result.stderr_text = stderr
         return result
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         click.echo(f"[ERROR] 명령어 실행 실패: {e}", err=True)
-        if e.stdout:
-            click.echo(f"stdout: {e.stdout}", err=True)
-        if e.stderr:
-            click.echo(f"stderr: {e.stderr}", err=True)
         sys.exit(1)
 
 
 def get_current_branch() -> str:
     """현재 Git 브랜치 이름을 반환합니다."""
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["git", "branch", "--show-current"],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding='utf-8',
             errors='replace'
         )
+        output = proc.stdout.read()  # str
+        proc.wait()
         
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
+        if proc.returncode == 0 and output.strip():
+            return output.strip()
         else:
             # fallback: 기본 브랜치 확인
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 encoding='utf-8',
                 errors='replace'
             )
+            output = proc.stdout.read()  # str
+            proc.wait()
             
-            if result.returncode == 0:
+            if proc.returncode == 0:
                 # refs/remotes/origin/main -> main
-                return result.stdout.strip().split('/')[-1]
+                return output.strip().split('/')[-1]
             else:
                 # 최종 fallback
                 return "main"
@@ -202,19 +220,22 @@ def analyze_git_commits() -> str:
     """Git 커밋 로그를 분석하여 버전 증가 타입을 결정합니다."""
     try:
         # 최근 커밋들 가져오기
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["git", "log", "--oneline", "-10"],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding='utf-8',
             errors='replace'
         )
+        output = proc.stdout.read()  # str
+        proc.wait()
         
-        if result.returncode != 0:
+        if proc.returncode != 0:
             click.echo("[WARNING] Git 로그를 읽을 수 없습니다. patch 버전으로 증가합니다.")
             return "patch"
         
-        commits = result.stdout.strip().split('\n')
+        commits = output.strip().split('\n')
         
         # 커밋 메시지 분석
         has_breaking_change = False

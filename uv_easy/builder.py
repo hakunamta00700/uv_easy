@@ -48,61 +48,37 @@ def build_package() -> None:
     env['PYTHONUTF8'] = '1'
     
     try:
-        # Windows에서 인코딩 문제를 피하기 위해 바이트로 받은 후 디코딩
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["uvx", "--from", "build", "pyproject-build"],
-            check=True,
-            capture_output=True,
-            text=False,  # 바이트로 받기
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
             env=env
         )
+        stdout = proc.stdout.read()  # str
+        stderr = proc.stderr.read()  # str
+        proc.wait()
         
-        # 안전하게 디코딩
-        if result.stdout:
-            try:
-                stdout_text = result.stdout.decode('utf-8', errors='replace')
-                click.echo(stdout_text)
-            except Exception:
-                # UTF-8 디코딩 실패 시 시스템 기본 인코딩 시도
-                import sys
-                encoding = sys.getdefaultencoding()
-                stdout_text = result.stdout.decode(encoding, errors='replace')
-                click.echo(stdout_text)
+        if stdout:
+            click.echo(stdout)
         
-        if result.stderr:
-            try:
-                stderr_text = result.stderr.decode('utf-8', errors='replace')
-                if stderr_text.strip():
-                    click.echo(stderr_text, err=True)
-            except Exception:
-                import sys
-                encoding = sys.getdefaultencoding()
-                stderr_text = result.stderr.decode(encoding, errors='replace')
-                if stderr_text.strip():
-                    click.echo(stderr_text, err=True)
+        if stderr and stderr.strip():
+            click.echo(stderr, err=True)
+        
+        if proc.returncode != 0:
+            click.echo("[ERROR] 빌드 실패:", err=True)
+            if stdout:
+                click.echo(f"stdout: {stdout}", err=True)
+            if stderr:
+                click.echo(f"stderr: {stderr}", err=True)
+            raise subprocess.CalledProcessError(proc.returncode, ["uvx", "--from", "build", "pyproject-build"])
         
         click.echo("[OK] 빌드가 완료되었습니다.")
         
     except subprocess.CalledProcessError as e:
         click.echo("[ERROR] 빌드 실패:", err=True)
-        if e.stdout:
-            try:
-                stdout_text = e.stdout.decode('utf-8', errors='replace') if isinstance(e.stdout, bytes) else e.stdout
-                click.echo(f"stdout: {stdout_text}", err=True)
-            except Exception:
-                import sys
-                encoding = sys.getdefaultencoding()
-                stdout_text = e.stdout.decode(encoding, errors='replace') if isinstance(e.stdout, bytes) else e.stdout
-                click.echo(f"stdout: {stdout_text}", err=True)
-        if e.stderr:
-            try:
-                stderr_text = e.stderr.decode('utf-8', errors='replace') if isinstance(e.stderr, bytes) else e.stderr
-                click.echo(f"stderr: {stderr_text}", err=True)
-            except Exception:
-                import sys
-                encoding = sys.getdefaultencoding()
-                stderr_text = e.stderr.decode(encoding, errors='replace') if isinstance(e.stderr, bytes) else e.stderr
-                click.echo(f"stderr: {stderr_text}", err=True)
         raise
 
 
@@ -127,7 +103,7 @@ def install_package() -> None:
     # uv를 사용하여 설치
     install_result = run_command(f"uv pip install {latest_wheel}")
     
-    if install_result.stdout:
-        click.echo(install_result.stdout)
+    if hasattr(install_result, 'stdout_text') and install_result.stdout_text:
+        click.echo(install_result.stdout_text)
     
     click.echo("[OK] 설치가 완료되었습니다.")
