@@ -45,29 +45,64 @@ def build_package() -> None:
     env = os.environ.copy()
     env['PYTHONIOENCODING'] = 'utf-8'
     env['PYTHONLEGACYWINDOWSSTDIO'] = '1'
+    env['PYTHONUTF8'] = '1'
     
     try:
+        # Windows에서 인코딩 문제를 피하기 위해 바이트로 받은 후 디코딩
         result = subprocess.run(
             ["uvx", "--from", "build", "pyproject-build"],
             check=True,
             capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
+            text=False,  # 바이트로 받기
             env=env
         )
         
+        # 안전하게 디코딩
         if result.stdout:
-            click.echo(result.stdout)
+            try:
+                stdout_text = result.stdout.decode('utf-8', errors='replace')
+                click.echo(stdout_text)
+            except Exception:
+                # UTF-8 디코딩 실패 시 시스템 기본 인코딩 시도
+                import sys
+                encoding = sys.getdefaultencoding()
+                stdout_text = result.stdout.decode(encoding, errors='replace')
+                click.echo(stdout_text)
+        
+        if result.stderr:
+            try:
+                stderr_text = result.stderr.decode('utf-8', errors='replace')
+                if stderr_text.strip():
+                    click.echo(stderr_text, err=True)
+            except Exception:
+                import sys
+                encoding = sys.getdefaultencoding()
+                stderr_text = result.stderr.decode(encoding, errors='replace')
+                if stderr_text.strip():
+                    click.echo(stderr_text, err=True)
         
         click.echo("[OK] 빌드가 완료되었습니다.")
         
     except subprocess.CalledProcessError as e:
         click.echo("[ERROR] 빌드 실패:", err=True)
         if e.stdout:
-            click.echo(f"stdout: {e.stdout}", err=True)
+            try:
+                stdout_text = e.stdout.decode('utf-8', errors='replace') if isinstance(e.stdout, bytes) else e.stdout
+                click.echo(f"stdout: {stdout_text}", err=True)
+            except Exception:
+                import sys
+                encoding = sys.getdefaultencoding()
+                stdout_text = e.stdout.decode(encoding, errors='replace') if isinstance(e.stdout, bytes) else e.stdout
+                click.echo(f"stdout: {stdout_text}", err=True)
         if e.stderr:
-            click.echo(f"stderr: {e.stderr}", err=True)
+            try:
+                stderr_text = e.stderr.decode('utf-8', errors='replace') if isinstance(e.stderr, bytes) else e.stderr
+                click.echo(f"stderr: {stderr_text}", err=True)
+            except Exception:
+                import sys
+                encoding = sys.getdefaultencoding()
+                stderr_text = e.stderr.decode(encoding, errors='replace') if isinstance(e.stderr, bytes) else e.stderr
+                click.echo(f"stderr: {stderr_text}", err=True)
         raise
 
 

@@ -2,11 +2,13 @@
 uv_easy CLI 진입점
 """
 
+import sys
+
 import click
 
 from .versioning import (
     read_version, write_version, increment_version, 
-    create_git_tag, analyze_git_commits
+    create_git_tag, analyze_git_commits, get_version
 )
 from .builder import clean_build_artifacts, build_package, install_package
 from .publisher import publish_to_pypi
@@ -15,10 +17,28 @@ from .workflow import generate_github_workflow, generate_git_cliff_config
 from .project import create_project_structure
 
 
-@click.group()
-def cli():
+def version_callback(ctx, param, value):
+    """버전 출력 콜백 함수"""
+    if not value:
+        return
+    click.echo(f"uv_easy {get_version()}")
+    ctx.exit()
+
+
+@click.group(invoke_without_command=True)
+@click.option(
+    '--version', '-v',
+    is_flag=True,
+    help='버전 정보를 출력합니다',
+    expose_value=False,
+    is_eager=True,
+    callback=version_callback
+)
+@click.pass_context
+def cli(ctx):
     """uv를 더 쉽게 사용하기 위한 도구"""
-    pass
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 @cli.group()

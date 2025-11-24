@@ -11,6 +11,12 @@ from typing import Optional, Tuple
 import click
 import toml
 
+try:
+    from importlib.metadata import version, PackageNotFoundError
+except ImportError:
+    # Python < 3.8
+    from importlib_metadata import version, PackageNotFoundError
+
 
 def get_pyproject_path() -> Path:
     """pyproject.toml 파일의 경로를 반환합니다."""
@@ -22,6 +28,35 @@ def get_pyproject_path() -> Path:
         sys.exit(1)
     
     return pyproject_path
+
+
+def get_version() -> str:
+    """
+    패키지 버전을 반환합니다.
+    
+    패키징 후에는 importlib.metadata에서 읽고,
+    개발 중에는 pyproject.toml에서 읽습니다.
+    """
+    # 먼저 설치된 패키지에서 버전 읽기 시도
+    try:
+        return version("uv-easy")
+    except PackageNotFoundError:
+        pass
+    
+    # 실패하면 pyproject.toml에서 읽기 시도
+    try:
+        current_dir = Path.cwd()
+        pyproject_path = current_dir / "pyproject.toml"
+        
+        if pyproject_path.exists():
+            with open(pyproject_path, 'r', encoding='utf-8') as f:
+                data = toml.load(f)
+                return data['project']['version']
+    except Exception:
+        pass
+    
+    # 모든 방법이 실패하면 기본값 반환
+    return "0.0.0"
 
 
 def read_version() -> str:

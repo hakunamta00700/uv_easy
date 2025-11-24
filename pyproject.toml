@@ -1,6 +1,6 @@
 [project]
 name = "uv-easy"
-version = "0.2.8"
+version = "0.2.9"
 description = "uv를 더 쉽게 사용하기 위한 도구"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -10,6 +10,9 @@ dependencies = [ "click>=8.0.0", "toml>=0.10.0", "twine>=6.2.0",]
 requires = [ "hatchling",]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [ "uv-easy",]
+
 [project.urls]
 Homepage = "https://github.com/hakunamta00700/uv_easy"
 Repository = "https://github.com/hakunamta00700/uv_easy"
@@ -17,6 +20,9 @@ Issues = "https://github.com/hakunamta00700/uv_easy/issues"
 
 [project.scripts]
 uv_easy = "uv_easy.cli:main"
+
+[tool.uv.sources.uv-easy]
+workspace = true
 
 [tool.hatch.build.targets.wheel]
 packages = [ "uv_easy",]
