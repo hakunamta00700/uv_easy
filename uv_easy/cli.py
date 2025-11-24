@@ -12,6 +12,7 @@ from .builder import clean_build_artifacts, build_package, install_package
 from .publisher import publish_to_pypi
 from .changelog import generate_changelog
 from .workflow import generate_github_workflow, generate_git_cliff_config
+from .project import create_project_structure
 
 
 @click.group()
@@ -216,6 +217,28 @@ def ready_pypi():
     except Exception as e:
         click.echo(f"❌ URLs 추가 중 오류가 발생했습니다: {e}", err=True)
         sys.exit(1)
+
+
+@cli.command()
+@click.argument('package_name')
+@click.option(
+    '--use',
+    type=click.Choice(['click', 'argparse'], case_sensitive=False),
+    default='click',
+    help='사용할 CLI 라이브러리 (click 또는 argparse)'
+)
+def startproject(package_name: str, use: str):
+    """
+    새로운 CLI 프로젝트 구조를 생성합니다.
+    
+    현재 프로젝트(pyproject.toml이 있는 곳)에 <패키지명> 폴더를 생성하고
+    기본 CLI 구조를 만듭니다.
+    
+    예시:
+        uv_easy startproject my_cli
+        uv_easy startproject my_cli --use argparse
+    """
+    create_project_structure(package_name, use_cli=use.lower())
 
 
 def main():
