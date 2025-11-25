@@ -60,13 +60,17 @@ def get_version() -> str:
 
 
 def read_version() -> str:
-    """pyproject.toml에서 현재 버전을 읽어옵니다."""
+    """pyproject.toml에서 현재 버전을 읽어옵니다. (빌드번호 제외)"""
     pyproject_path = get_pyproject_path()
     
     try:
         with open(pyproject_path, 'r', encoding='utf-8') as f:
             data = toml.load(f)
-            return data['project']['version']
+            version = data['project']['version']
+            # 빌드번호가 포함된 경우 제거 (예: "0.2.9+1" -> "0.2.9")
+            if '+' in version:
+                version = version.split('+')[0]
+            return version
     except Exception as e:
         click.echo(f"[ERROR] 버전을 읽는 중 오류가 발생했습니다: {e}", err=True)
         sys.exit(1)
@@ -264,3 +268,93 @@ def analyze_git_commits() -> str:
     except Exception as e:
         click.echo(f"[WARNING] 커밋 분석 중 오류: {e}. patch 버전으로 증가합니다.")
         return "patch"
+
+
+def read_build_number() -> int:
+    """pyproject.toml에서 현재 빌드번호를 읽어옵니다."""
+    pyproject_path = get_pyproject_path()
+    
+    try:
+        with open(pyproject_path, 'r', encoding='utf-8') as f:
+            data = toml.load(f)
+            # [tool.uv_easy] 섹션에서 빌드번호 읽기
+            if 'tool' in data and 'uv_easy' in data['tool']:
+                return data['tool']['uv_easy'].get('build_number', 0)
+            return 0
+    except Exception as e:
+        click.echo(f"[WARNING] 빌드번호를 읽는 중 오류가 발생했습니다: {e}. 기본값 0을 사용합니다.")
+        return 0
+
+
+def write_build_number(build_number: int) -> None:
+    """pyproject.toml에 새로운 빌드번호를 씁니다."""
+    pyproject_path = get_pyproject_path()
+    
+    try:
+        with open(pyproject_path, 'r', encoding='utf-8') as f:
+            data = toml.load(f)
+        
+        # [tool.uv_easy] 섹션 생성 또는 업데이트
+        if 'tool' not in data:
+            data['tool'] = {}
+        if 'uv_easy' not in data['tool']:
+            data['tool']['uv_easy'] = {}
+        
+        data['tool']['uv_easy']['build_number'] = build_number
+        
+        with open(pyproject_path, 'w', encoding='utf-8') as f:
+            toml.dump(data, f)
+            
+        click.echo(f"[OK] 빌드번호가 {build_number}으로 업데이트되었습니다.")
+    except Exception as e:
+        click.echo(f"[ERROR] 빌드번호를 쓰는 중 오류가 발생했습니다: {e}", err=True)
+        sys.exit(1)
+
+
+def increment_build_number() -> int:
+    """빌드번호를 증가시키고 반환합니다."""
+    current_build = read_build_number()
+    new_build = current_build + 1
+    write_build_number(new_build)
+    return new_build
+
+
+def init_build_number() -> None:
+    """빌드번호를 0으로 초기화합니다."""
+    write_build_number(0)
+    click.echo("[OK] 빌드번호가 0으로 초기화되었습니다.")
+
+
+def get_version_with_build() -> str:
+    """현재 버전과 빌드번호를 조합하여 반환합니다."""
+    version = read_version()
+    build_number = read_build_number()
+    
+    # 버전에서 이미 +빌드번호가 있는지 확인
+    if '+' in version:
+        # 기존 +빌드번호 제거
+        version = version.split('+')[0]
+    
+    if build_number > 0:
+        return f"{version}+{build_number}"
+    return version
+
+
+def write_version_with_build() -> None:
+    """버전을 빌드번호와 함께 업데이트합니다."""
+    version_with_build = get_version_with_build()
+    pyproject_path = get_pyproject_path()
+    
+    try:
+        with open(pyproject_path, 'r', encoding='utf-8') as f:
+            data = toml.load(f)
+        
+        data['project']['version'] = version_with_build
+        
+        with open(pyproject_path, 'w', encoding='utf-8') as f:
+            toml.dump(data, f)
+            
+        click.echo(f"[OK] 버전이 {version_with_build}으로 업데이트되었습니다.")
+    except Exception as e:
+        click.echo(f"[ERROR] 버전을 쓰는 중 오류가 발생했습니다: {e}", err=True)
+        sys.exit(1)
