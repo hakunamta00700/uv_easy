@@ -7,22 +7,56 @@ from pathlib import Path
 from typing import Literal
 
 import click
-import toml
 
-from . import __version__ as uv_easy_version
+from .utils import get_pyproject_path, load_toml, save_toml
 
 
-def get_pyproject_path() -> Path:
-    """pyproject.toml 파일의 경로를 반환합니다."""
-    current_dir = Path.cwd()
-    pyproject_path = current_dir / "pyproject.toml"
-    
-    if not pyproject_path.exists():
-        click.echo("❌ pyproject.toml 파일을 찾을 수 없습니다.", err=True)
-        click.echo("   현재 디렉토리에서 pyproject.toml이 있는 프로젝트 루트로 이동하세요.", err=True)
+def setup_pypi_urls() -> None:
+    """pyproject.toml에 PyPI 배포를 위한 project.urls를 추가합니다."""
+    # load_toml은 기본적으로 pyproject.toml을 읽습니다.
+    try:
+        data = load_toml()
+
+        # project.urls가 이미 있는지 확인
+        if "urls" in data.get("project", {}):
+            click.echo("⚠️  project.urls가 이미 존재합니다.")
+            click.echo("현재 URLs:")
+            for key, value in data["project"]["urls"].items():
+                click.echo(f"  {key}: {value}")
+
+            if not click.confirm("기존 URLs를 덮어쓰시겠습니까?"):
+                click.echo("작업이 취소되었습니다.")
+                return
+
+        # 기본 URLs 추가
+        project_name = data["project"]["name"]
+        default_urls = {
+            "Homepage": f"https://github.com/hakunamta00700/{project_name}",
+            "Repository": f"https://github.com/hakunamta00700/{project_name}",
+            "Issues": f"https://github.com/hakunamta00700/{project_name}/issues",
+            "Documentation": f"https://github.com/hakunamta00700/{project_name}#readme",
+        }
+
+        # project.urls 추가
+        if "project" not in data:
+            data["project"] = {}
+
+        data["project"]["urls"] = default_urls
+
+        save_toml(data)
+
+        click.echo("✅ PyPI 배포를 위한 URLs가 추가되었습니다:")
+        for key, value in default_urls.items():
+            click.echo(f"  {key}: {value}")
+
+        click.echo("\n💡 다음 단계:")
+        click.echo("1. GitHub 저장소가 생성되었는지 확인하세요")
+        click.echo("2. uv_easy build로 패키지를 빌드하세요")
+        click.echo("3. uv_easy publish로 PyPI에 업로드하세요")
+
+    except Exception as e:
+        click.echo(f"❌ URLs 추가 중 오류가 발생했습니다: {e}", err=True)
         sys.exit(1)
-    
-    return pyproject_path
 
 
 def create_project_structure(
@@ -31,10 +65,6 @@ def create_project_structure(
 ) -> None:
     """
     새로운 CLI 프로젝트 구조를 생성합니다.
-    
-    Args:
-        package_name: 생성할 패키지 이름
-        use_cli: 사용할 CLI 라이브러리 ('click' 또는 'argparse')
     """
     pyproject_path = get_pyproject_path()
     project_root = pyproject_path.parent
@@ -56,8 +86,7 @@ def create_project_structure(
 
 __version__ = "0.1.0"
 '''
-    init_file = package_dir / "__init__.py"
-    init_file.write_text(init_content, encoding='utf-8')
+    (package_dir / "__init__.py").write_text(init_content, encoding='utf-8')
     click.echo(f"✅ '{package_name}/__init__.py' 파일을 생성했습니다.")
     
     # __main__.py 생성
@@ -80,8 +109,7 @@ from {package_name}.cli import main
 if __name__ == "__main__":
     main()
 '''
-    main_file = package_dir / "__main__.py"
-    main_file.write_text(main_content, encoding='utf-8')
+    (package_dir / "__main__.py").write_text(main_content, encoding='utf-8')
     click.echo(f"✅ '{package_name}/__main__.py' 파일을 생성했습니다.")
     
     # cli.py 생성
@@ -191,55 +219,47 @@ def main():
         sys.exit(1)
 '''
     
-    cli_file = package_dir / "cli.py"
-    cli_file.write_text(cli_content, encoding='utf-8')
+    (package_dir / "cli.py").write_text(cli_content, encoding='utf-8')
     click.echo(f"✅ '{package_name}/cli.py' 파일을 생성했습니다 ({use_cli} 사용).")
     
     # pyproject.toml 설정 통합 업데이트
     try:
-        with open(pyproject_path, 'r', encoding='utf-8') as f:
-            data = toml.load(f)
+        data = load_toml(pyproject_path)
         
         # [project] 섹션 설정
         if 'project' not in data:
             data['project'] = {}
         
-        # 프로젝트 이름이 없으면 설정
         if 'name' not in data['project']:
             data['project']['name'] = package_name.replace('_', '-')
         
-        # 버전이 없으면 추가
         if 'version' not in data['project']:
             data['project']['version'] = "0.1.0"
         
-        # requires-python이 없으면 추가
         if 'requires-python' not in data['project']:
             data['project']['requires-python'] = ">=3.9"
         
-        # dependencies가 없으면 빈 리스트로 초기화
         if 'dependencies' not in data['project']:
             data['project']['dependencies'] = []
         
-        # CLI 라이브러리 의존성 추가 (중복 방지)
+        # CLI 라이브러리 의존성
         if use_cli == "click":
             click_dep = "click>=8.0.0"
             if not any(dep.startswith("click") for dep in data['project']['dependencies']):
                 data['project']['dependencies'].append(click_dep)
         
-        # toml 의존성 추가 (버전 확인용)
         toml_dep = "toml>=0.10.0"
         if not any(dep.startswith("toml") for dep in data['project']['dependencies']):
             data['project']['dependencies'].append(toml_dep)
         
-        # [project.scripts] 섹션 설정
+        # [project.scripts]
         if 'scripts' not in data['project']:
             data['project']['scripts'] = {}
         
-        # 스크립트 추가 (패키지명으로)
         script_entry = f"{package_name}.cli:main"
         data['project']['scripts'][package_name] = script_entry
         
-        # [project.urls] 섹션 설정 (없으면 기본값 추가)
+        # [project.urls]
         if 'urls' not in data['project']:
             project_name_for_url = data['project'].get('name', package_name.replace('_', '-'))
             data['project']['urls'] = {
@@ -249,21 +269,21 @@ def main():
                 "Documentation": f"https://github.com/hakunamta00700/{project_name_for_url}#readme"
             }
         
-        # [build-system] 섹션 설정
+        # [build-system]
         if 'build-system' not in data:
             data['build-system'] = {
                 'requires': ['hatchling'],
                 'build-backend': 'hatchling.build'
             }
         
-        # [tool.uv] 섹션 설정
+        # [tool.uv]
         if 'tool' not in data:
             data['tool'] = {}
         if 'uv' not in data['tool']:
             data['tool']['uv'] = {}
         data['tool']['uv']['package'] = True
         
-        # [tool.hatch.build.targets.wheel] 섹션 설정
+        # [tool.hatch.build.targets.wheel]
         if 'hatch' not in data['tool']:
             data['tool']['hatch'] = {}
         if 'build' not in data['tool']['hatch']:
@@ -273,12 +293,9 @@ def main():
         if 'wheel' not in data['tool']['hatch']['build']['targets']:
             data['tool']['hatch']['build']['targets']['wheel'] = {}
         
-        # wheel 패키지 설정
         data['tool']['hatch']['build']['targets']['wheel']['packages'] = [package_name]
         
-        # 파일에 쓰기
-        with open(pyproject_path, 'w', encoding='utf-8') as f:
-            toml.dump(data, f)
+        save_toml(data)
         
         click.echo(f"✅ pyproject.toml을 완전히 설정했습니다:")
         click.echo(f"   - [project] 섹션 (name, version, dependencies)")
@@ -293,11 +310,9 @@ def main():
         click.echo(f"❌ pyproject.toml 업데이트 중 오류가 발생했습니다: {e}", err=True)
         sys.exit(1)
     
-    # 다음 단계 안내
     click.echo("\n💡 다음 단계:")
     click.echo("   1. uv sync로 의존성 설치")
     click.echo(f"   2. {package_name} version으로 테스트")
     click.echo("   3. uv_easy version up으로 버전 관리 시작")
     
     click.echo(f"\n✅ '{package_name}' 프로젝트 구조 생성이 완료되었습니다!")
-

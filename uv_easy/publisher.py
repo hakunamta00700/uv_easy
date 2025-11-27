@@ -3,14 +3,13 @@ PyPI/TestPyPI 업로드 관련 기능
 """
 
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
 
 import click
 
 from .versioning import read_version
+from .utils import run_command
 
 
 def publish_to_pypi(test: bool = False, json_output: bool = False) -> dict:
@@ -29,48 +28,30 @@ def publish_to_pypi(test: bool = False, json_output: bool = False) -> dict:
         click.echo("[ERROR] dist 디렉토리가 비어있습니다. 먼저 빌드를 실행하세요.", err=True)
         sys.exit(1)
     
-    click.echo(f"[UPLOAD] {repository.upper()}에 패키지를 업로드합니다...")
-    click.echo("업로드할 파일들:")
-    for file in dist_files:
-        click.echo(f"  - {file.name}")
-    
-    # Windows에서 UTF-8 환경 변수 설정
-    env = os.environ.copy()
-    env['PYTHONIOENCODING'] = 'utf-8'
-    env['PYTHONLEGACYWINDOWSSTDIO'] = '1'
+    if not json_output:
+        click.echo(f"[UPLOAD] {repository.upper()}에 패키지를 업로드합니다...")
+        click.echo("업로드할 파일들:")
+        for file in dist_files:
+            click.echo(f"  - {file.name}")
     
     # twine upload 명령어 구성
     upload_cmd = ["twine", "upload", "dist/*"]
     if test:
         upload_cmd.extend(["--repository", "testpypi"])
     
-    # twine upload 실행
     try:
-        proc = subprocess.Popen(
+        # 실행 (캡처하여 결과 제어)
+        result = run_command(
             upload_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            env=env
+            capture_output=True,
+            check=True
         )
-        stdout = proc.stdout.read()  # str
-        stderr = proc.stderr.read()  # str
-        proc.wait()
         
-        if stdout:
-            click.echo(stdout)
+        if not json_output and result.stdout:
+            click.echo(result.stdout)
         
-        if proc.returncode != 0:
-            click.echo(f"[ERROR] {repository.upper()} 업로드 실패:", err=True)
-            if stdout:
-                click.echo(f"stdout: {stdout}", err=True)
-            if stderr:
-                click.echo(f"stderr: {stderr}", err=True)
-            sys.exit(1)
-        
-        click.echo(f"[OK] {repository.upper()} 업로드가 완료되었습니다!")
+        if not json_output:
+            click.echo(f"[OK] {repository.upper()} 업로드가 완료되었습니다!")
         
         # 결과 정보 수집
         current_version = read_version()
@@ -89,5 +70,6 @@ def publish_to_pypi(test: bool = False, json_output: bool = False) -> dict:
         return result_data
         
     except Exception as e:
-        click.echo(f"[ERROR] {repository.upper()} 업로드 실패: {e}", err=True)
+        if not json_output:
+            click.echo(f"[ERROR] {repository.upper()} 업로드 실패: {e}", err=True)
         sys.exit(1)

@@ -2,7 +2,7 @@
 uv_easy CLI 진입점
 """
 
-import sys
+from pathlib import Path
 
 import click
 
@@ -19,13 +19,7 @@ from .builder import clean_build_artifacts, build_package, install_package
 from .publisher import publish_to_pypi
 from .changelog import generate_changelog
 from .workflow import generate_github_workflow, generate_git_cliff_config
-from .project import create_project_structure
-
-
-def safe_text(data):
-    if isinstance(data, bytes):
-        return data.decode("utf-8", errors="replace")
-    return str(data)
+from .project import create_project_structure, setup_pypi_urls
 
 
 def version_callback(ctx, param, value):
@@ -163,8 +157,7 @@ def build(
     # 2. 버전 증가 (옵션에 따라)
     if not no_version_up:
         current_version = read_version()
-        print(current_version)
-        # click.echo(f"현재 버전: {safe_text(current_version)}")
+        click.echo(f"현재 버전: {current_version}")
 
         if auto:
             increment_type = analyze_git_commits()
@@ -183,8 +176,7 @@ def build(
         create_git_tag(new_version, push=not no_push)
 
     # 3. 빌드 실행
-    # --no-build-number 옵션이 있으면 빌드번호 없이 빌드, 없으면 빌드번호 증가 및 버전 업데이트
-    # --version-file 옵션이 있으면 빌드 전에 버전 파일 업데이트
+    # build_package 내부에서 version_file 처리 및 빌드번호 관리 수행
     build_package(increment_build=not no_build_number, version_file=version_file)
 
     # 4. 설치 (옵션에 따라)
@@ -231,58 +223,7 @@ def init_buildnumber():
 @cli.command()
 def ready_pypi():
     """pyproject.toml에 PyPI 배포를 위한 project.urls를 추가합니다."""
-    from .versioning import get_pyproject_path
-    import toml
-
-    pyproject_path = get_pyproject_path()
-
-    try:
-        # 현재 pyproject.toml 읽기
-        with open(pyproject_path, "r", encoding="utf-8") as f:
-            data = toml.load(f)
-
-        # project.urls가 이미 있는지 확인
-        if "urls" in data.get("project", {}):
-            click.echo("⚠️  project.urls가 이미 존재합니다.")
-            click.echo("현재 URLs:")
-            for key, value in data["project"]["urls"].items():
-                click.echo(f"  {key}: {value}")
-
-            if not click.confirm("기존 URLs를 덮어쓰시겠습니까?"):
-                click.echo("작업이 취소되었습니다.")
-                return
-
-        # 기본 URLs 추가
-        project_name = data["project"]["name"]
-        default_urls = {
-            "Homepage": f"https://github.com/hakunamta00700/{project_name}",
-            "Repository": f"https://github.com/hakunamta00700/{project_name}",
-            "Issues": f"https://github.com/hakunamta00700/{project_name}/issues",
-            "Documentation": f"https://github.com/hakunamta00700/{project_name}#readme",
-        }
-
-        # project.urls 추가
-        if "project" not in data:
-            data["project"] = {}
-
-        data["project"]["urls"] = default_urls
-
-        # 파일에 쓰기
-        with open(pyproject_path, "w", encoding="utf-8") as f:
-            toml.dump(data, f)
-
-        click.echo("✅ PyPI 배포를 위한 URLs가 추가되었습니다:")
-        for key, value in default_urls.items():
-            click.echo(f"  {key}: {value}")
-
-        click.echo("\n💡 다음 단계:")
-        click.echo("1. GitHub 저장소가 생성되었는지 확인하세요")
-        click.echo("2. uv_easy build로 패키지를 빌드하세요")
-        click.echo("3. uv_easy publish로 PyPI에 업로드하세요")
-
-    except Exception as e:
-        click.echo(f"❌ URLs 추가 중 오류가 발생했습니다: {e}", err=True)
-        sys.exit(1)
+    setup_pypi_urls()
 
 
 @cli.command()
@@ -296,13 +237,6 @@ def ready_pypi():
 def startproject(package_name: str, use: str):
     """
     새로운 CLI 프로젝트 구조를 생성합니다.
-
-    현재 프로젝트(pyproject.toml이 있는 곳)에 <패키지명> 폴더를 생성하고
-    기본 CLI 구조를 만듭니다.
-
-    예시:
-        uv_easy startproject my_cli
-        uv_easy startproject my_cli --use argparse
     """
     create_project_structure(package_name, use_cli=use.lower())
 

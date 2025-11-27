@@ -2,29 +2,21 @@
 Changelog 생성 관련 기능 (git-cliff 통합)
 """
 
-import subprocess
 import sys
 from pathlib import Path
 
 import click
 
+from .utils import run_command
+
 
 def check_git_cliff_installed() -> bool:
     """git-cliff가 설치되어 있는지 확인합니다."""
     try:
-        proc = subprocess.Popen(
-            ["git-cliff", "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8',
-            errors='replace'
-        )
-        proc.stdout.read()  # str
-        proc.stderr.read()  # str
-        proc.wait()
-        return proc.returncode == 0
-    except FileNotFoundError:
+        # check=True로 호출하여 실패 시 예외 발생 유도
+        run_command(["git-cliff", "--version"], capture_output=True, check=True)
+        return True
+    except Exception:
         return False
 
 
@@ -33,27 +25,9 @@ def install_git_cliff() -> None:
     click.echo("[INSTALL] git-cliff 설치 중...")
     
     try:
-        # uv를 사용하여 git-cliff 설치
-        proc = subprocess.Popen(
-            ["uvx", "git-cliff", "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8',
-            errors='replace'
-        )
-        stdout = proc.stdout.read()  # str
-        stderr = proc.stderr.read()  # str
-        proc.wait()
-        
-        if proc.returncode == 0:
-            click.echo("[OK] git-cliff가 설치되었습니다.")
-        else:
-            click.echo("[ERROR] git-cliff 설치에 실패했습니다.", err=True)
-            if stderr:
-                click.echo(f"stderr: {stderr}", err=True)
-            sys.exit(1)
-            
+        # uv를 사용하여 git-cliff 설치 확인 (실제 설치는 uvx 실행 시 자동 수행될 수 있음)
+        run_command(["uvx", "git-cliff", "--version"], capture_output=True, check=True)
+        click.echo("[OK] git-cliff가 설치되었습니다.")
     except Exception as e:
         click.echo(f"[ERROR] git-cliff 설치 중 오류: {e}", err=True)
         sys.exit(1)
@@ -76,40 +50,25 @@ def generate_changelog(tag: str = None, output_file: str = "CHANGELOG.md") -> No
         cmd.extend(["--tag", tag])
     
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8',
-            errors='replace'
-        )
-        stdout = proc.stdout.read()  # str
-        stderr = proc.stderr.read()  # str
-        proc.wait()
+        run_command(cmd, capture_output=True, check=True)
+        click.echo(f"[OK] Changelog가 {output_file}에 생성되었습니다.")
         
-        if proc.returncode == 0:
-            click.echo(f"[OK] Changelog가 {output_file}에 생성되었습니다.")
-            
-            # 생성된 파일 내용 미리보기
-            if Path(output_file).exists():
-                with open(output_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    if content.strip():
-                        click.echo("\n[PREVIEW] 생성된 Changelog 미리보기:")
-                        click.echo("─" * 50)
-                        # 처음 20줄만 표시
-                        lines = content.split('\n')[:20]
-                        for line in lines:
-                            click.echo(line)
-                        if len(content.split('\n')) > 20:
-                            click.echo("... (더 많은 내용이 있습니다)")
-                        click.echo("─" * 50)
-                    else:
-                        click.echo("[WARNING] 생성된 changelog가 비어있습니다.")
-        else:
-            click.echo(f"[ERROR] Changelog 생성 실패: {stderr}", err=True)
-            sys.exit(1)
+        # 생성된 파일 내용 미리보기
+        if Path(output_file).exists():
+            with open(output_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if content.strip():
+                    click.echo("\n[PREVIEW] 생성된 Changelog 미리보기:")
+                    click.echo("─" * 50)
+                    # 처음 20줄만 표시
+                    lines = content.split('\n')[:20]
+                    for line in lines:
+                        click.echo(line)
+                    if len(content.split('\n')) > 20:
+                        click.echo("... (더 많은 내용이 있습니다)")
+                    click.echo("─" * 50)
+                else:
+                    click.echo("[WARNING] 생성된 changelog가 비어있습니다.")
             
     except Exception as e:
         click.echo(f"[ERROR] Changelog 생성 중 오류: {e}", err=True)
