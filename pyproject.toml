@@ -1,6 +1,6 @@
 [project]
 name = "uv-easy"
-version = "0.2.50"
+version = "0.2.52"
 description = "uv를 더 쉽게 사용하기 위한 도구"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -22,7 +22,7 @@ Issues = "https://github.com/hakunamta00700/uv_easy/issues"
 uv_easy = "uv_easy.cli:main"
 
 [tool.uv_easy]
-build_number = 3
+build_number = 4
 
 [tool.uv.sources.uv-easy]
 workspace = true

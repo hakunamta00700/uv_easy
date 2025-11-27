@@ -358,3 +358,68 @@ def write_version_with_build() -> None:
     except Exception as e:
         click.echo(f"[ERROR] 버전을 쓰는 중 오류가 발생했습니다: {e}", err=True)
         sys.exit(1)
+
+
+def get_final_version() -> str:
+    """pyproject.toml에서 최종 버전을 읽어옵니다 (빌드번호 포함 여부와 관계없이)."""
+    pyproject_path = get_pyproject_path()
+    
+    try:
+        with open(pyproject_path, 'r', encoding='utf-8') as f:
+            data = toml.load(f)
+            return data['project']['version']
+    except Exception as e:
+        click.echo(f"[ERROR] 버전을 읽는 중 오류가 발생했습니다: {e}", err=True)
+        sys.exit(1)
+
+
+def write_version_file(version_file: str) -> None:
+    """
+    지정된 파일에 __version__ 변수를 씁니다.
+    
+    Args:
+        version_file: 버전을 쓸 파일 경로
+    """
+    final_version = get_final_version()
+    version_file_path = Path(version_file)
+    
+    try:
+        # 파일이 존재하는 경우 기존 내용 확인
+        if version_file_path.exists():
+            with open(version_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # __version__ 라인 찾기 및 교체
+            lines = content.split('\n')
+            version_line_found = False
+            
+            for i, line in enumerate(lines):
+                # __version__ = 로 시작하는 라인 찾기
+                if line.strip().startswith('__version__'):
+                    lines[i] = f'__version__ = "{final_version}"'
+                    version_line_found = True
+                    break
+            
+            if version_line_found:
+                # 기존 라인 교체
+                new_content = '\n'.join(lines)
+            else:
+                # __version__ 라인이 없으면 파일 끝에 추가
+                if content and not content.endswith('\n'):
+                    new_content = content + '\n'
+                else:
+                    new_content = content
+                new_content += f'__version__ = "{final_version}"\n'
+        else:
+            # 파일이 없으면 새로 생성
+            new_content = f'__version__ = "{final_version}"\n'
+        
+        # 파일 쓰기
+        version_file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(version_file_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        click.echo(f"[OK] 버전 파일이 업데이트되었습니다: {version_file} (버전: {final_version})")
+    except Exception as e:
+        click.echo(f"[ERROR] 버전 파일을 쓰는 중 오류가 발생했습니다: {e}", err=True)
+        sys.exit(1)
