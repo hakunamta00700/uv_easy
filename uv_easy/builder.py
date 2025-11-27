@@ -8,7 +8,7 @@ from pathlib import Path
 
 import click
 
-from .versioning import run_command
+from .versioning import run_command, increment_build_number, write_version_with_build, read_version, write_version
 
 
 def clean_build_artifacts() -> None:
@@ -37,9 +37,25 @@ def clean_build_artifacts() -> None:
                     click.echo(f"  [OK] {file_path.name} 삭제됨")
 
 
-def build_package() -> None:
-    """패키지를 빌드합니다."""
+def build_package(increment_build: bool = True) -> None:
+    """
+    패키지를 빌드합니다.
+    
+    Args:
+        increment_build: True이면 빌드번호를 증가시키고 버전에 추가, False이면 빌드번호 없이 빌드
+    """
     click.echo("[BUILD] 패키지를 빌드합니다...")
+    
+    if increment_build:
+        # 빌드 전에 빌드번호 증가 및 버전 업데이트
+        new_build_number = increment_build_number()
+        click.echo(f"[BUILD] 빌드번호 증가: {new_build_number}")
+        write_version_with_build()
+    else:
+        # 빌드번호 없이 순수 버전만 사용
+        current_version = read_version()
+        write_version(current_version)
+        click.echo(f"[BUILD] 빌드번호 없이 빌드합니다. 버전: {current_version}")
     
     # Windows에서 UTF-8 환경 변수 설정
     env = os.environ.copy()

@@ -14,9 +14,6 @@ from .versioning import (
     analyze_git_commits,
     get_version,
     init_build_number,
-    increment_build_number,
-    get_version_with_build,
-    write_version_with_build,
 )
 from .builder import clean_build_artifacts, build_package, install_package
 from .publisher import publish_to_pypi
@@ -137,6 +134,7 @@ def changelog(tag: str, output: str):
 )
 @click.option("--install", is_flag=True, help="빌드 후 현재 환경에 설치합니다")
 @click.option("--no-push", is_flag=True, help="Git 태그를 푸시하지 않습니다")
+@click.option("--no-build-number", is_flag=True, help="빌드번호를 증가시키지 않고 빌드합니다. 버전에 빌드번호가 포함되지 않습니다.")
 def build(
     no_version_up: bool,
     major: bool,
@@ -145,6 +143,7 @@ def build(
     auto: bool,
     install: bool,
     no_push: bool,
+    no_build_number: bool,
 ):
     """패키지를 빌드합니다."""
     # 버전 증가 옵션 확인
@@ -181,14 +180,9 @@ def build(
         # Git 태그 생성 및 푸시
         create_git_tag(new_version, push=not no_push)
 
-    # 2-1. 빌드번호 증가 (기본적으로 항상 증가)
-    new_build_number = increment_build_number()
-    click.echo(f"빌드번호 증가: {new_build_number}")
-    # 버전에 빌드번호 추가
-    write_version_with_build()
-
     # 3. 빌드 실행
-    build_package()
+    # --no-build-number 옵션이 있으면 빌드번호 없이 빌드, 없으면 빌드번호 증가 및 버전 업데이트
+    build_package(increment_build=not no_build_number)
 
     # 4. 설치 (옵션에 따라)
     if install:
